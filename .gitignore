@@ -5,3 +5,6 @@ data/
 /.venv
 /sampled
 Sampled-YD-Object-Detection-*/
+runs/
+*.pt
+!weights/best.pt
