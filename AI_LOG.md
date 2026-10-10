@@ -44,3 +44,22 @@ I used Claude Code (in VS Code) as an assistant throughout. I asked it to propos
 - Looked at every generated plot and image grid, not just the printed numbers.
 - Opened the closest duplicate pairs to decide what the phash distances actually mean (same scene vs. same photo).
 - Checked what `hsv_h` does in the installed Ultralytics source (`augment.py`: shift of `± hsv_h * 180` hue units) instead of trusting the docs or the AI's description.
+
+## 4. Training, evaluation and inference scripts
+
+**What I asked:** A `train.py` with a baseline config and a tuned config derived from the data exploration, then `evaluate.py` (per-class metrics + error analysis) and `predict.py` in the required output format.
+
+**What I kept vs. rewrote, and why:** Kept the two-config design and the augmentation choices tied to measured numbers. Dropped the baseline run and cut training from 50 to 20 epochs to fit my time budget, and listed that as a limitation instead of claiming the augmentation helped.
+
+**What the AI got wrong that I had to catch:**
+- Ultralytics nests a relative `project` path, so the val plots landed in `runs/detect/runs/val`. Fixed by passing an absolute path.
+- Its "wait for training to finish" loop used `pgrep -f "train.py"`, which matched the loop's own shell command, so it never exited. Training had finished; it had to be killed by hand.
+- The first background training run died when the session restarted. Rerun with `nohup`.
+- METHODOLOGY originally said mAP was "still rising" at the end. results.csv shows it levelled off at epochs 19-20 (0.503 -> 0.502), so I reworded it.
+- The download notebook never actually read `ROBOFLOW_API_KEY` from the environment. Fixed with `load_dotenv()`.
+
+**How I verified it:**
+- Smoke-tested each script on a 1-2 epoch checkpoint before the real run.
+- Compared a `predict.py` output line with the ground-truth label by hand (centre 0.470/0.581 vs 0.471/0.585, same class).
+- Checked a training batch image to confirm the boxes still line up after augmentation.
+- Looked at `analysis/errors.jpg` myself for the error analysis. Several "false positives" are real bottles with missing labels.
