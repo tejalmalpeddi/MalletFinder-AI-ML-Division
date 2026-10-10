@@ -8,3 +8,4 @@ Sampled-YD-Object-Detection-*/
 runs/
 *.pt
 !weights/best.pt
+video_test/
