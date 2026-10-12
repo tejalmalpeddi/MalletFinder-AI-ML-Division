@@ -16,7 +16,7 @@ from explore_data import NAMES, SMALL, load_split, tile_grid
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--weights", default="weights/best.pt")
-    parser.add_argument("--conf", type=float, default=0.25)
+    parser.add_argument("--conf", type=float, default=0.35)
     args = parser.parse_args()
     model = YOLO(args.weights)
     rows = load_split("train")

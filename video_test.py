@@ -32,7 +32,7 @@ def main():
     parser.add_argument("video", type=Path)
     parser.add_argument("--frames", type=int, default=20)
     parser.add_argument("--weights", default="weights/best.pt")
-    parser.add_argument("--conf", type=float, default=0.25)
+    parser.add_argument("--conf", type=float, default=0.35)
     args = parser.parse_args()
 
     (OUT / "frames").mkdir(parents=True, exist_ok=True)

@@ -13,7 +13,7 @@ def main():
     parser.add_argument("images", type=Path)
     parser.add_argument("output", type=Path)
     parser.add_argument("--weights", default="weights/best.pt")
-    parser.add_argument("--conf", type=float, default=0.25)
+    parser.add_argument("--conf", type=float, default=0.35)
     args = parser.parse_args()
 
     paths = sorted(p for p in args.images.iterdir() if p.suffix.lower() in EXTENSIONS)

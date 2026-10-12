@@ -1,6 +1,6 @@
 """Per-class metrics, threshold sweep and error analysis on the validation split.
 
-    python evaluate.py [--weights weights/best.pt] [--conf 0.25]
+    python evaluate.py [--weights weights/best.pt] [--conf 0.35]
 """
 import argparse
 from pathlib import Path
@@ -76,7 +76,7 @@ def threshold_sweep(all_preds, rows, thresholds=(0.1, 0.15, 0.2, 0.25, 0.3, 0.35
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--weights", default="weights/best.pt")
-    parser.add_argument("--conf", type=float, default=0.25)
+    parser.add_argument("--conf", type=float, default=0.35)
     args = parser.parse_args()
     model = YOLO(args.weights)
 

@@ -173,6 +173,11 @@ def near_duplicates(splits):
     cv2.imwrite(str(OUT / "closest_pairs.jpg"), np.vstack(tiles))
 
 
+def tile_grid(tiles, cols):
+    tiles = tiles + [np.zeros_like(tiles[0])] * (-len(tiles) % cols)
+    return np.vstack([np.hstack(tiles[i:i + cols]) for i in range(0, len(tiles), cols)])
+
+
 def draw_grid(items, path, cols=4, tile=320):
     tiles = []
     for img_path, boxes in items:
@@ -182,8 +187,7 @@ def draw_grid(items, path, cols=4, tile=320):
             cv2.rectangle(img, (x1, y1), (x2, y2), COLORS[box[0]], 2)
             cv2.putText(img, NAMES[box[0]], (x1, max(y1 - 5, 15)), cv2.FONT_HERSHEY_SIMPLEX, 0.7, COLORS[box[0]], 2)
         tiles.append(cv2.resize(img, (tile, tile)))
-    grid = np.vstack([np.hstack(tiles[i:i + cols]) for i in range(0, len(tiles), cols)])
-    cv2.imwrite(str(path), grid)
+    cv2.imwrite(str(path), tile_grid(tiles, cols))
 
 
 def main():
