@@ -1,12 +1,5 @@
 """Train YOLOv8n on the bottle/mallet dataset.
 
-Two configs, identical except for augmentation, so the tuned choices can be judged
-against Ultralytics' defaults:
-
-    python train.py --config baseline
-    python train.py --config tuned
-
-Weights land in runs/<config>/weights/best.pt.
 """
 import argparse
 from pathlib import Path
@@ -24,20 +17,19 @@ COMMON = dict(model="yolov8n.pt", imgsz=640, batch=16, epochs=50, patience=20, s
 CONFIGS = {
     "baseline": {},
     "tuned": dict(
-        hsv_h=0.01,  # mallet and sand are ~7 hue units apart; this shifts at most 1.8 (default 2.7)
-        hsv_v=0.5,   # mean brightness spans 52-187 across the dataset
-        scale=0.3,   # default 0.5 can shrink a 16 px object to 8 px, one grid cell
+        hsv_h=0.01,
+        hsv_v=0.5,
+        scale=0.3,
         augmentations=[
-            A.MotionBlur(blur_limit=(3, 7), p=0.2),             # camera on a moving rover
-            A.ImageCompression(quality_range=(40, 90), p=0.2),  # compressed onboard video frames
-            A.CLAHE(clip_limit=2.0, p=0.1),                     # local contrast in harsh sun / shadow
+            A.MotionBlur(blur_limit=(3, 7), p=0.2),
+            A.ImageCompression(quality_range=(40, 90), p=0.2),
+            A.CLAHE(clip_limit=2.0, p=0.1),
         ],
     ),
 }
 
 
 def write_data_yaml():
-    # the downloaded data.yaml lists a test split that doesn't exist, so use our own
     names = yaml.safe_load((DATA / "data.yaml").read_text())["names"]
     config = {"path": str(DATA), "train": "train/images", "val": "valid/images", "names": dict(enumerate(names))}
     path = RUNS / "data.yaml"
@@ -58,6 +50,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", choices=CONFIGS, default="tuned")
     parser.add_argument("--epochs", type=int, default=COMMON["epochs"])
+    parser.add_argument("--name", help="run folder under runs/, defaults to the config name")
     args = parser.parse_args()
 
     settings = {**COMMON, **CONFIGS[args.config], "epochs": args.epochs}
@@ -65,7 +58,7 @@ def main():
     model.train(
         data=str(write_data_yaml()),
         project=str(RUNS),
-        name=args.config,
+        name=args.name or args.config,
         exist_ok=True,
         device=pick_device(),
         **settings,

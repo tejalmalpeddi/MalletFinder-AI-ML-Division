@@ -1,5 +1,6 @@
-"""Evaluate trained weights on the validation split.
+"""Per-class metrics, threshold sweep and error analysis on the validation split.
 
+    python evaluate.py [--weights weights/best.pt] [--conf 0.25]
 """
 import argparse
 from pathlib import Path
@@ -8,7 +9,7 @@ import cv2
 import numpy as np
 from ultralytics import YOLO
 
-from explore_data import DATA, NAMES, SIZE, SMALL, MEDIUM, load_split, to_pixels
+from explore_data import NAMES, SIZE, SMALL, MEDIUM, load_split, tile_grid, to_pixels
 from train import pick_device, write_data_yaml
 
 OUT = Path("analysis")
@@ -23,7 +24,6 @@ def iou(a, b):
 
 
 def match(preds, labels, threshold=0.5):
-    """Greedy, highest confidence first. Returns (true positives, false positives, missed labels)."""
     used = set()
     tp, fp = [], []
     for c, box, conf in sorted(preds, key=lambda p: -p[2]):
@@ -56,6 +56,23 @@ def draw(img_path, labels, fp, fn):
     return cv2.resize(img, (384, 384))
 
 
+def threshold_sweep(all_preds, rows, thresholds=(0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.5, 0.6)):
+    print("\nthreshold sweep (P / R):")
+    print("  conf   " + "".join(f"{n:>15s}" for n in NAMES))
+    for t in thresholds:
+        tp, fp, fn = [0] * len(NAMES), [0] * len(NAMES), [0] * len(NAMES)
+        for preds, (_, labels) in zip(all_preds, rows):
+            hits, false, missed = match([p for p in preds if p[2] >= t], labels)
+            for c, *_ in hits:
+                tp[c] += 1
+            for c, *_ in false:
+                fp[c] += 1
+            for l in missed:
+                fn[l[0]] += 1
+        cells = [f"{tp[c] / max(tp[c] + fp[c], 1):.2f} / {tp[c] / max(tp[c] + fn[c], 1):.2f}" for c in range(len(NAMES))]
+        print(f"  {t:4.2f}   " + "".join(f"{x:>15s}" for x in cells))
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--weights", default="weights/best.pt")
@@ -73,19 +90,22 @@ def main():
     print("(P/R above are at Ultralytics' max-F1 threshold; plots in runs/val/)")
 
     rows = load_split("valid")
+    all_preds = [
+        [(int(c), tuple(map(int, b)), float(s))
+         for c, b, s in zip(result.boxes.cls, result.boxes.xyxy.tolist(), result.boxes.conf)]
+        for result in model.predict([str(p) for p, _ in rows], conf=0.05, stream=True, verbose=False)
+    ]
+    threshold_sweep(all_preds, rows)
+
     counts = {c: dict(tp=0, fp=0, fn=0, wrong_class=0) for c in range(len(NAMES))}
     missed_sides, errors = [], []
-    for result, (img_path, labels) in zip(
-        model.predict([str(p) for p, _ in rows], conf=args.conf, stream=True, verbose=False), rows
-    ):
-        preds = [(int(c), tuple(map(int, b)), float(s))
-                 for c, b, s in zip(result.boxes.cls, result.boxes.xyxy.tolist(), result.boxes.conf)]
+    for preds, (img_path, labels) in zip(all_preds, rows):
+        preds = [p for p in preds if p[2] >= args.conf]
         tp, fp, fn = match(preds, labels)
         for c, *_ in tp:
             counts[c]["tp"] += 1
         for c, box, _ in fp:
             counts[c]["fp"] += 1
-            # a false positive sitting on an object of the other class is a confusion, not a hallucination
             if any(l[0] != c and iou(box, to_pixels(l)) >= 0.5 for l in labels):
                 counts[c]["wrong_class"] += 1
         for l in fn:
@@ -110,11 +130,8 @@ def main():
         print(f"  {name:6s} ({n:3d} objects): recall {1 - m / max(n, 1):.2f}")
 
     errors.sort(key=lambda e: -e[0])
-    tiles = [draw(*e[1:]) for e in errors[:12]]
-    if tiles:
-        tiles += [np.zeros_like(tiles[0])] * (-len(tiles) % 4)
-        grid = np.vstack([np.hstack(tiles[i:i + 4]) for i in range(0, len(tiles), 4)])
-        cv2.imwrite(str(OUT / "errors.jpg"), grid)
+    if errors:
+        cv2.imwrite(str(OUT / "errors.jpg"), tile_grid([draw(*e[1:]) for e in errors[:12]], cols=4))
     print(f"\n{len(errors)} of {len(rows)} images have an error; worst 12 in {OUT}/errors.jpg")
 
 

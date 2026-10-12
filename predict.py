@@ -1,5 +1,4 @@
 """Run the detector on a folder of images and write one YOLO-format .txt per image.
-
 """
 import argparse
 from pathlib import Path

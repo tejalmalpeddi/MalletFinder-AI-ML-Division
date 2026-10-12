@@ -1,14 +1,10 @@
-"""Look at the raw dataset before training anything.
-
-Answers the questions that decide the training setup:
+"""
+Answers my important questions:
   - how big are the objects in pixels, and will the detector's grid even see them?
   - how varied is the lighting, and how much rotation is already baked in?
   - is colour a reliable cue for the mallet, and does the background share it?
   - are there near-duplicate photos across (or within) the train/valid split?
 
-Prints a summary and writes plots to analysis/. Run from the repo root:
-
-    python explore_data.py
 """
 import random
 from pathlib import Path
@@ -22,10 +18,9 @@ from PIL import Image
 DATA = Path("Sampled-YD-Object-Detection-2")
 OUT = Path("analysis")
 NAMES = ["bottle", "mallet"]
-COLORS = [(255, 128, 0), (0, 200, 0)]  # BGR: bottle blue, mallet green
-SIZE = 512  # every image in the dataset is 512x512
+COLORS = [(255, 128, 0), (0, 200, 0)]  
+SIZE = 512  
 
-# COCO's size buckets, in pixels of sqrt(box area)
 SMALL, MEDIUM = 32, 96
 
 
@@ -73,7 +68,6 @@ def box_sizes(splits):
               f"large {1 - small - medium:.0%} | under 16px: {np.mean(side < 16):.0%}")
 
         axes[0].hist(side, bins=np.logspace(np.log10(4), np.log10(SIZE), 40), alpha=0.6, label=name)
-        # log2 so a box twice as tall (-1) and one twice as wide (+1) sit symmetric around 0
         axes[1].hist(np.log2(w / h), bins=40, alpha=0.6, label=name)
         axes[2].scatter(x, y, s=4, alpha=0.5, label=name)
 
@@ -91,7 +85,6 @@ def box_sizes(splits):
 
 
 def black_corners(gray, patch=6, threshold=8):
-    # Roboflow's rotation augmentation fills the uncovered corners with pure black
     corners = [gray[:patch, :patch], gray[:patch, -patch:], gray[-patch:, :patch], gray[-patch:, -patch:]]
     return sum(c.max() <= threshold for c in corners)
 
@@ -123,9 +116,6 @@ def lighting(splits):
 
 def hue(rows):
     """Hue of saturated pixels inside mallet boxes, bottle boxes, and outside all boxes.
-
-    Low-saturation pixels (grey sand, white sky) have no meaningful hue, so they're dropped.
-    OpenCV hue runs 0-179, so red wraps around: 175 and 2 are neighbours.
     """
     inside = [[] for _ in NAMES]
     background = []
@@ -138,7 +128,7 @@ def hue(rows):
             region = hsv[y1:y2, x1:x2]
             inside[box[0]].append(region[..., 0][saturated[y1:y2, x1:x2]])
             outside[y1:y2, x1:x2] = False
-        background.append(hsv[..., 0][saturated & outside][::10])  # subsample, background is huge
+        background.append(hsv[..., 0][saturated & outside][::10])  
 
     fig, ax = plt.subplots(figsize=(8, 4))
     bins = np.arange(0, 181, 3)
@@ -162,15 +152,11 @@ def phash_bits(rows):
 def near_duplicates(splits):
     """Count photo pairs whose perceptual hashes are within a Hamming distance, for a range of cut-offs.
 
-    The dataset authors kept one augmented copy per source photo, but the same scene can still
-    appear twice under different names (e.g. '01_THEWATERBOTTLE' and '01_THEWATERBOTTLE-copy').
-    Sweeping the cut-off instead of picking one shows where 'same photo' ends; closest_pairs.jpg
-    lets you check that by eye.
     """
     train, valid = phash_bits(splits["train"]), phash_bits(splits["valid"])
     cross = (train[:, None, :] != valid[None, :, :]).sum(-1)
     within = (train[:, None, :] != train[None, :, :]).sum(-1)
-    within = within[np.triu_indices(len(train), k=1)]  # each pair once, no self-pairs
+    within = within[np.triu_indices(len(train), k=1)]  
 
     print("\nnear-duplicate pairs by phash distance (64 bits):")
     print("  <=d   train-valid   train-train")
@@ -212,7 +198,6 @@ def main():
     near_duplicates(splits)
 
     draw_grid(random.Random(0).sample(splits["train"], 16), OUT / "samples.jpg")
-    # the objects most likely to be missed, to look at before the model ever misses them
     smallest = sorted(everything, key=lambda r: min(b[3] * b[4] for b in r[1]))[:16]
     draw_grid(smallest, OUT / "smallest.jpg")
     print(f"\nplots written to {OUT}/")

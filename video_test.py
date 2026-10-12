@@ -1,10 +1,6 @@
 """Run the detector on frames sampled from a phone video, to test outside the dataset's distribution.
-
-    python video_test.py path/to/video.mov [--frames 20] [--conf 0.25]
-
-Writes the sampled frames to video_test/frames/, YOLO-format predictions to video_test/labels/,
-and a contact sheet with boxes drawn to analysis/video_<video name>.jpg.
 """
+
 import argparse
 from pathlib import Path
 
@@ -12,9 +8,10 @@ import cv2
 import numpy as np
 from ultralytics import YOLO
 
+from explore_data import COLORS, NAMES, tile_grid
+
 OUT = Path("video_test")
-NAMES = ["bottle", "mallet"]
-COLORS = [(255, 128, 0), (0, 200, 0)]
+MALLET = NAMES.index("mallet")
 
 
 def sample_frames(video, n):
@@ -51,7 +48,7 @@ def main():
                  for c, (x, y, w, h), s in zip(boxes.cls, boxes.xywhn.tolist(), boxes.conf)]
         (OUT / "labels" / f"{name}.txt").write_text("\n".join(lines) + ("\n" if lines else ""))
 
-        hits += any(int(c) == 1 for c in boxes.cls)
+        hits += any(int(c) == MALLET for c in boxes.cls)
         for c, (x1, y1, x2, y2), s in zip(boxes.cls, boxes.xyxy.tolist(), boxes.conf):
             c = int(c)
             cv2.rectangle(frame, (int(x1), int(y1)), (int(x2), int(y2)), COLORS[c], 4)
@@ -60,13 +57,10 @@ def main():
         cv2.putText(frame, name, (20, frame.shape[0] - 20), cv2.FONT_HERSHEY_SIMPLEX, 1.5, (255, 255, 255), 3)
         tiles.append(cv2.resize(frame, (320, int(320 * frame.shape[0] / frame.shape[1]))))
 
-    n = len(tiles)
-    tiles += [np.zeros_like(tiles[0])] * (-len(tiles) % 5)
-    sheet = np.vstack([np.hstack(tiles[i:i + 5]) for i in range(0, len(tiles), 5)])
     Path("analysis").mkdir(exist_ok=True)
     sheet_path = f"analysis/video_{args.video.stem}.jpg"
-    cv2.imwrite(sheet_path, sheet)
-    print(f"mallet detected in {hits}/{n} sampled frames; sheet in {sheet_path}")
+    cv2.imwrite(sheet_path, tile_grid(tiles, cols=5))
+    print(f"mallet detected in {hits}/{len(tiles)} sampled frames; sheet in {sheet_path}")
 
 
 if __name__ == "__main__":
