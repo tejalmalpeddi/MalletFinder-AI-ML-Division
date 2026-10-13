@@ -1,6 +1,6 @@
 # ML/AI Track Project
 
-## Part 0: Base Knowledge Primer
+## Part 0: Intro
 
 ### Object detection
 
